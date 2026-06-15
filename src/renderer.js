@@ -203,14 +203,25 @@ function filteredModels() {
 // ---- 網格 ----
 let thumbObserver = null
 let renderToken = 0   // 每次 renderGrid 遞增，分批渲染時用來中止已過期的批次
+const MAX_RENDER = 500   // 單一畫面最多渲染的卡片數；超過請用搜尋或分類縮小範圍
 function renderGrid() {
   const grid = $('#grid')
   const myToken = ++renderToken
   grid.innerHTML = ''
   const list = filteredModels()
-  currentList = list
   lastClickedIndex = -1
-  $('#count').textContent = t('model_count', { n: list.length })
+
+  // 超過上限時只渲染前 N 張，避免數千張卡片 + base64 縮圖塞爆 DOM 造成卡頓。
+  // 各分類最大約 200 多張，此上限實質只限制「全部」(2768) 這種巨集清單。
+  const truncated = list.length > MAX_RENDER
+  const renderList = truncated ? list.slice(0, MAX_RENDER) : list
+  currentList = renderList   // 選取/範圍選取以實際渲染出來的卡片為準
+
+  if (truncated) {
+    $('#count').textContent = t('model_count_truncated', { shown: renderList.length, total: list.length })
+  } else {
+    $('#count').textContent = t('model_count', { n: list.length })
+  }
 
   if (!list.length) {
     grid.innerHTML = `<div class="empty">${t('no_models')}</div>`
@@ -219,7 +230,7 @@ function renderGrid() {
     return
   }
 
-  refreshBuiltCount(list)
+  refreshBuiltCount(list)   // 計數涵蓋整個清單（即使只渲染前 N 張），反映素材庫整體進度
 
   if (thumbObserver) thumbObserver.disconnect()
   thumbObserver = new IntersectionObserver((entries) => {
@@ -238,10 +249,17 @@ function renderGrid() {
   function appendChunk() {
     if (myToken !== renderToken) return   // 已被更新的 renderGrid 取代，停止這批
     const frag = document.createDocumentFragment()
-    const end = Math.min(i + CHUNK, list.length)
-    for (; i < end; i++) frag.appendChild(card(list[i], i))
+    const end = Math.min(i + CHUNK, renderList.length)
+    for (; i < end; i++) frag.appendChild(card(renderList[i], i))
     grid.appendChild(frag)
-    if (i < list.length) requestAnimationFrame(appendChunk)
+    if (i < renderList.length) {
+      requestAnimationFrame(appendChunk)
+    } else if (truncated) {
+      const notice = document.createElement('div')
+      notice.className = 'grid-notice'
+      notice.textContent = t('grid_truncated', { shown: renderList.length, total: list.length })
+      grid.appendChild(notice)
+    }
   }
   appendChunk()
   updateSelToolbar()

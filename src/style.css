@@ -156,6 +156,7 @@ body {
 .card .fav-star { position: absolute; top: 6px; right: 6px; font-size: 16px; color: var(--fav); text-shadow: 0 0 3px #000; }
 
 .empty { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 60px 20px; }
+.grid-notice { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 28px 20px; font-size: .92rem; border-top: 1px dashed var(--border); margin-top: 8px; }
 
 /* ---- 檢視器 ---- */
 .hidden { display: none !important; }
