@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>3D Asset Browser — Browse your local 3D library instantly</title>
+<meta name="description" content="A desktop app for browsing local 3D asset libraries. Instant thumbnails via three.js, multi-select, 3D viewer with animation playback. Windows / macOS / Linux." />
+<meta property="og:title" content="3D Asset Browser" />
+<meta property="og:description" content="Browse your local 3D library with instant thumbnails, multi-select, and 3D viewer with skeletal animation playback." />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="screenshot-browse.png" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>" />
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-soft: #161b22;
+    --bg-card: #1a2029;
+    --border: #2a313c;
+    --text: #e6edf3;
+    --text-dim: #9aa6b2;
+    --accent: #a371f7;
+    --accent-2: #7ee787;
+    --accent-grad: linear-gradient(135deg, #a371f7 0%, #58a6ff 100%);
+    --shadow: 0 10px 40px rgba(0,0,0,.4);
+    --radius: 14px;
+    --maxw: 1080px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff;
+      --bg-soft: #f6f8fa;
+      --bg-card: #ffffff;
+      --border: #e2e6eb;
+      --text: #1f2328;
+      --text-dim: #5a6570;
+      --shadow: 0 10px 40px rgba(20,30,60,.10);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+  body {
+    font-family: -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 20px; }
+
+  /* NAV */
+  header.nav {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: saturate(160%) blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner { display: flex; align-items: center; gap: 18px; height: 62px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.05rem; color: var(--text); }
+  .brand .logo { font-size: 1.5rem; }
+  .nav-links { display: flex; gap: 22px; margin-left: auto; align-items: center; }
+  .nav-links a { color: var(--text-dim); font-size: .95rem; font-weight: 500; }
+  .nav-links a:hover { color: var(--text); text-decoration: none; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 18px; border-radius: 10px; font-weight: 600; font-size: .95rem;
+    border: 1px solid var(--border); color: var(--text); background: var(--bg-soft);
+    cursor: pointer; transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:hover { text-decoration: none; transform: translateY(-1px); }
+  .btn.primary { background: var(--accent-grad); color: #fff; border: none; box-shadow: 0 6px 20px rgba(163,113,247,.35); }
+  .btn.ghost { background: transparent; }
+  #langToggle { padding: 7px 12px; font-size: .85rem; }
+
+  /* HERO */
+  .hero { padding: 90px 0 74px; text-align: center; position: relative; overflow: hidden; }
+  .hero::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    background:
+      radial-gradient(60% 50% at 50% -10%, rgba(163,113,247,.20), transparent 70%),
+      radial-gradient(40% 40% at 80% 10%, rgba(88,166,255,.12), transparent 70%);
+  }
+  .badge {
+    display: inline-block; padding: 6px 14px; border-radius: 999px;
+    background: var(--bg-soft); border: 1px solid var(--border);
+    color: var(--text-dim); font-size: .82rem; font-weight: 600; margin-bottom: 22px;
+  }
+  .hero h1 { font-size: clamp(2.1rem, 5vw, 3.4rem); line-height: 1.2; font-weight: 800; letter-spacing: -.02em; }
+  .hero h1 .grad { background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero p.lead { max-width: 720px; margin: 22px auto 0; font-size: clamp(1.02rem, 2vw, 1.18rem); color: var(--text-dim); }
+  .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 34px; }
+  .hero .platforms { margin-top: 26px; color: var(--text-dim); font-size: .9rem; display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
+  .hero .platforms b { color: var(--text); }
+
+  /* SECTION */
+  section { padding: 72px 0; }
+  section.alt { background: var(--bg-soft); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .section-head { text-align: center; max-width: 680px; margin: 0 auto 48px; }
+  .section-head h2 { font-size: clamp(1.6rem, 3.5vw, 2.3rem); font-weight: 800; letter-spacing: -.01em; }
+  .section-head p { color: var(--text-dim); margin-top: 12px; font-size: 1.05rem; }
+
+  /* FEATURES */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 26px 22px; transition: transform .15s ease, border-color .15s;
+  }
+  .card:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .card .ico { font-size: 1.9rem; }
+  .card h3 { margin: 14px 0 8px; font-size: 1.12rem; }
+  .card p { color: var(--text-dim); font-size: .96rem; }
+
+  /* VIDEO */
+  .video-wrap {
+    position: relative; display: block; margin: 0 auto; max-width: 800px;
+    border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .video-wrap img { width: 100%; display: block; }
+  .play-btn {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.3); transition: background .15s;
+  }
+  .play-btn:hover { background: rgba(0,0,0,.45); }
+  .play-circle {
+    width: 72px; height: 72px; border-radius: 50%; background: rgba(255,255,255,.92);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; padding-left: 5px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.3);
+    transition: transform .15s;
+  }
+  .video-wrap:hover .play-circle { transform: scale(1.08); }
+
+  /* SHOTS */
+  .shots { display: grid; gap: 60px; }
+  .shot { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: center; }
+  .shot.rev .shot-text { order: 2; }
+  .shot-text h3 { font-size: 1.4rem; margin-bottom: 12px; }
+  .shot-text p { color: var(--text-dim); }
+  .shot img { width: 100%; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); display: block; }
+
+  /* DOWNLOAD */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+  table { width: 100%; border-collapse: collapse; font-size: .96rem; }
+  th, td { text-align: left; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  th { background: var(--bg-soft); font-weight: 700; }
+  tr:last-child td { border-bottom: none; }
+  td code { background: var(--bg-soft); padding: 3px 7px; border-radius: 6px; font-size: .85em; }
+  .dl-center { text-align: center; margin-bottom: 34px; }
+
+  /* STEPS + KEYS */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+  .steps { list-style: none; counter-reset: s; }
+  .steps li { counter-increment: s; position: relative; padding: 0 0 22px 52px; }
+  .steps li::before {
+    content: counter(s); position: absolute; left: 0; top: 0;
+    width: 34px; height: 34px; border-radius: 50%; background: var(--accent-grad); color: #fff;
+    display: grid; place-items: center; font-weight: 700;
+  }
+  .steps li:not(:last-child)::after { content: ""; position: absolute; left: 16px; top: 38px; bottom: 6px; width: 2px; background: var(--border); }
+  .steps li h4 { font-size: 1.05rem; }
+  .steps li p { color: var(--text-dim); font-size: .95rem; }
+  .keys { display: flex; flex-direction: column; gap: 10px; }
+  .keyrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--border); }
+  .keyrow:last-child { border-bottom: none; }
+  .keyrow span { color: var(--text-dim); font-size: .95rem; }
+  kbd {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .82rem;
+    background: var(--bg-soft); border: 1px solid var(--border); border-bottom-width: 2px;
+    padding: 3px 8px; border-radius: 6px; color: var(--text); white-space: nowrap;
+  }
+
+  /* FOOTER */
+  footer { padding: 46px 0; border-top: 1px solid var(--border); color: var(--text-dim); font-size: .9rem; text-align: center; }
+  footer a { color: var(--text-dim); text-decoration: underline; }
+  footer .ft-links { display: flex; gap: 20px; justify-content: center; margin-bottom: 14px; }
+
+  @media (max-width: 860px) {
+    .grid { grid-template-columns: 1fr; }
+    .shot, .shot.rev .shot-text, .two-col { grid-template-columns: 1fr; }
+    .shot.rev .shot-text { order: 0; }
+    .nav-links a:not(.btn) { display: none; }
+  }
+  [data-en] { display: none; }
+  html[lang="en"] [data-zh] { display: none; }
+  html[lang="en"] [data-en] { display: revert; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top"><span class="logo">📦</span><span>3D Asset Browser</span></a>
+    <nav class="nav-links">
+      <a href="#features"><span data-zh>功能</span><span data-en>Features</span></a>
+      <a href="#shots"><span data-zh>截圖</span><span data-en>Screenshots</span></a>
+      <a href="#download"><span data-zh>下載</span><span data-en>Download</span></a>
+      <a href="https://github.com/craig7351/3d-asset-browser" target="_blank" rel="noopener">GitHub</a>
+      <button class="btn ghost" id="langToggle" type="button">中</button>
+      <a class="btn primary" href="https://github.com/craig7351/3d-asset-browser/releases/latest" target="_blank" rel="noopener">
+        ⬇ <span data-zh>下載</span><span data-en>Download</span>
+      </a>
+    </nav>
+  </div>
+</header>
+
+<a id="top"></a>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <span class="badge">📦 Electron 33 · three.js r160 · Windows / macOS / Linux</span>
+    <h1>
+      <span data-zh>瞬間瀏覽你的 <span class="grad">3D 素材庫</span></span>
+      <span data-en>Browse your <span class="grad">3D library</span> instantly</span>
+    </h1>
+    <p class="lead">
+      <span data-zh>掃描本機資料夾、自動產生縮圖、點卡片即可在 3D 中旋轉檢視。同名多格式自動合併，快取存在模型旁邊，搬移素材庫不失效。</span>
+      <span data-en>Scan a local folder, auto-generate thumbnails, click any card to rotate it in 3D. Same-name multi-format models are merged into one card. Thumbnails are cached right next to your models — they survive when you move your library.</span>
+    </p>
+    <div class="hero-cta">
+      <a class="btn primary" href="https://github.com/craig7351/3d-asset-browser/releases/latest" target="_blank" rel="noopener">
+        ⬇ <span data-zh>下載最新版</span><span data-en>Download latest</span>
+      </a>
+      <a class="btn ghost" href="https://youtu.be/PIGn0YEywX0" target="_blank" rel="noopener">
+        ▶ <span data-zh>觀看介紹影片</span><span data-en>Watch demo</span>
+      </a>
+      <a class="btn ghost" href="https://github.com/craig7351/3d-asset-browser" target="_blank" rel="noopener">
+        ★ <span data-zh>GitHub 原始碼</span><span data-en>Source on GitHub</span>
+      </a>
+    </div>
+    <div class="platforms">
+      <span><b>Windows</b> · NSIS installer + portable</span>
+      <span><b>macOS</b> · DMG (x64 + arm64)</span>
+      <span><b>Linux</b> · AppImage + deb</span>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="alt">
+  <div class="wrap">
+    <div class="section-head">
+      <h2><span data-zh>為什麼好用</span><span data-en>Why it's great</span></h2>
+      <p><span data-zh>從掃描到 3D 預覽，一站搞定。</span><span data-en>From scan to 3D preview — everything in one place.</span></p>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="ico">⚡</div>
+        <h3><span data-zh>非同步快速掃描</span><span data-en>Async fast scan</span></h3>
+        <p><span data-zh>用 <code>fs.promises</code> + <code>Promise.all</code> 並行遞迴掃描，同名多格式（glb / gltf / fbx / obj / blend）自動合併成一張卡片。</span><span data-en>Parallel recursive scan via <code>fs.promises</code> + <code>Promise.all</code>. Same-name multi-format models (glb / gltf / fbx / obj / blend) are merged into a single card.</span></p>
+      </div>
+      <div class="card"><div class="ico">🖼️</div>
+        <h3><span data-zh>即時縮圖，快取在旁</span><span data-en>Instant thumbnails, cached nearby</span></h3>
+        <p><span data-zh>用 three.js 離屏渲染縮圖，快取存在 <code>{模型目錄}/.thumbs/</code>，搬移素材庫不失效。IntersectionObserver 懶載入，畫面外不渲染。</span><span data-en>three.js offscreen rendering saves thumbnails to <code>{model_dir}/.thumbs/</code> — portable with your library. IntersectionObserver lazy-loads cards only when visible.</span></p>
+      </div>
+      <div class="card"><div class="ico">🎮</div>
+        <h3><span data-zh>3D 檢視器</span><span data-en>3D Viewer</span></h3>
+        <p><span data-zh>點卡片即可旋轉、縮放、平移；支援線框、格線、深色 / 淺色 / 透明背景切換；顯示面數與頂點數。</span><span data-en>Click any card to rotate, zoom and pan. Wireframe, grid, dark/light/transparent background toggle. Shows triangle and vertex counts.</span></p>
+      </div>
+      <div class="card"><div class="ico">🎬</div>
+        <h3><span data-zh>骨架動畫播放</span><span data-en>Skeletal animation playback</span></h3>
+        <p><span data-zh>GLTF / GLB / FBX 內含的動畫片段可播放、暫停、切換，預設自動播放 Idle 動畫。</span><span data-en>Play, pause and switch animation clips from GLTF / GLB / FBX. Automatically defaults to the Idle clip when available.</span></p>
+      </div>
+      <div class="card"><div class="ico">☑️</div>
+        <h3><span data-zh>多選 + 右鍵選單</span><span data-en>Multi-select + context menu</span></h3>
+        <p><span data-zh><kbd>Ctrl+點</kbd> 多選、<kbd>Shift+點</kbd> 範圍選取；右鍵列出所有路徑、批次複製、批次刪除（移到資源回收桶）。</span><span data-en><kbd>Ctrl+click</kbd> to multi-select, <kbd>Shift+click</kbd> for range. Right-click to list all paths, copy in bulk, or batch-delete (moves to Recycle Bin).</span></p>
+      </div>
+      <div class="card"><div class="ico">🔍</div>
+        <h3><span data-zh>搜尋與篩選</span><span data-en>Search & filter</span></h3>
+        <p><span data-zh>關鍵字搜尋、格式篩選（glb / gltf / fbx / obj / blend）、只看最愛、只看動畫模型。側欄資料夾樹快速切換目錄。</span><span data-en>Keyword search, format filter (glb / gltf / fbx / obj / blend), favorites-only, animated-only. Sidebar folder tree for quick directory switching.</span></p>
+      </div>
+      <div class="card"><div class="ico">💾</div>
+        <h3><span data-zh>最愛與標記</span><span data-en>Favorites & tags</span></h3>
+        <p><span data-zh>⭐ 標記最愛模型，側欄「最愛」分類快速存取；資料存在 userData，不動原始素材。</span><span data-en>⭐ Star your favorite models and access them in the sidebar Favorites folder. Data is stored in userData and never touches your asset files.</span></p>
+      </div>
+      <div class="card"><div class="ico">🌍</div>
+        <h3><span data-zh>中英雙語 UI</span><span data-en>Bilingual UI</span></h3>
+        <p><span data-zh>右上角一鍵切換 English / 中文，設定存在 localStorage 跨次重啟記住。</span><span data-en>One-click toggle between English and 中文 in the top bar. The choice is remembered across restarts via localStorage.</span></p>
+      </div>
+      <div class="card"><div class="ico">📦</div>
+        <h3><span data-zh>可攜版，免安裝</span><span data-en>Portable, no install</span></h3>
+        <p><span data-zh>Windows portable exe 免安裝即可執行；所有平台皆提供安裝版，由 GitHub Actions 自動從公開原始碼建置。</span><span data-en>Windows portable exe runs without installing. All platforms have an installer. Every binary is built by GitHub Actions from public source.</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VIDEO -->
+<section id="demo">
+  <div class="wrap">
+    <div class="section-head">
+      <h2><span data-zh>介紹影片</span><span data-en>Demo video</span></h2>
+      <p><span data-zh>看看實際操作的樣子。</span><span data-en>See it in action.</span></p>
+    </div>
+    <a class="video-wrap" href="https://youtu.be/PIGn0YEywX0" target="_blank" rel="noopener">
+      <img src="https://img.youtube.com/vi/PIGn0YEywX0/maxresdefault.jpg" alt="3D Asset Browser demo video" loading="lazy" />
+      <div class="play-btn"><div class="play-circle">▶</div></div>
+    </a>
+  </div>
+</section>
+
+<!-- SCREENSHOTS -->
+<section id="shots" class="alt">
+  <div class="wrap">
+    <div class="section-head">
+      <h2><span data-zh>實際畫面</span><span data-en>Screenshots</span></h2>
+      <p><span data-zh>瀏覽、多選、一站搞定。</span><span data-en>Browse, select, done.</span></p>
+    </div>
+    <div class="shots">
+      <div class="shot">
+        <div class="shot-text">
+          <h3><span data-zh>縮圖網格瀏覽</span><span data-en>Thumbnail grid view</span></h3>
+          <p><span data-zh>掃描完成後，所有模型以縮圖卡片呈現。縮圖由 three.js 離屏渲染並快取在模型旁，下次開啟秒速顯示。左側資料夾樹可快速切換目錄。</span><span data-en>After scanning, every model is displayed as a thumbnail card. Thumbnails are rendered by three.js offscreen and cached right next to your models — instant on the next launch. Use the sidebar folder tree to navigate quickly.</span></p>
+        </div>
+        <img src="screenshot-browse.png" alt="3D Asset Browser - thumbnail grid view" loading="lazy" />
+      </div>
+      <div class="shot rev">
+        <div class="shot-text">
+          <h3><span data-zh>多選與右鍵操作</span><span data-en>Multi-select & right-click</span></h3>
+          <p><span data-zh>Ctrl+點 多選、Shift+點 範圍選取；右鍵呼出選單，可列出所有路徑、複製、或批次刪除至資源回收桶。</span><span data-en>Ctrl+click for multi-select, Shift+click for range. Right-click to list all paths, copy in bulk, or send a batch to the Recycle Bin.</span></p>
+        </div>
+        <img src="screenshot-multiselect.png" alt="3D Asset Browser - multi-select mode" loading="lazy" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section id="download">
+  <div class="wrap">
+    <div class="section-head">
+      <h2><span data-zh>下載安裝</span><span data-en>Download & install</span></h2>
+      <p><span data-zh>到 Releases 頁面取得最新版本，所有平台皆有對應檔案。</span><span data-en>Grab the latest build from Releases — binaries for every platform.</span></p>
+    </div>
+    <div class="dl-center">
+      <a class="btn primary" href="https://github.com/craig7351/3d-asset-browser/releases/latest" target="_blank" rel="noopener">
+        ⬇ <span data-zh>前往 Releases 下載</span><span data-en>Go to Releases</span>
+      </a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th><span data-zh>平台</span><span data-en>Platform</span></th>
+            <th><span data-zh>檔案</span><span data-en>File</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><span data-zh>Windows（安裝版 · 推薦）</span><span data-en>Windows (installer · recommended)</span></td><td><code>*Setup.exe</code></td></tr>
+          <tr><td><span data-zh>Windows（免安裝可攜版）</span><span data-en>Windows (portable)</span></td><td><code>*portable.exe</code></td></tr>
+          <tr><td>macOS (Apple Silicon)</td><td><code>*arm64.dmg</code></td></tr>
+          <tr><td>macOS (Intel)</td><td><code>*x64.dmg</code></td></tr>
+          <tr><td>Linux</td><td><code>*.AppImage</code> · <code>*.deb</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- QUICK START + KEYS -->
+<section id="start" class="alt">
+  <div class="wrap">
+    <div class="section-head">
+      <h2><span data-zh>三步上手</span><span data-en>Up and running in 3 steps</span></h2>
+    </div>
+    <div class="two-col">
+      <ol class="steps">
+        <li>
+          <h4><span data-zh>下載並執行</span><span data-en>Download & run</span></h4>
+          <p><span data-zh>從 Releases 取得對應平台的安裝檔或可攜版，雙擊即可啟動。</span><span data-en>Grab the installer or portable exe from Releases and double-click to launch.</span></p>
+        </li>
+        <li>
+          <h4><span data-zh>指定素材庫資料夾</span><span data-en>Point to your library</span></h4>
+          <p><span data-zh>按左下角「變更素材庫資料夾…」選取你的 3D 素材根目錄，App 會自動遞迴掃描。</span><span data-en>Click "Change library folder…" at the bottom-left and select your 3D asset root. The app will scan it recursively and automatically.</span></p>
+        </li>
+        <li>
+          <h4><span data-zh>瀏覽、檢視、管理</span><span data-en>Browse, view, manage</span></h4>
+          <p><span data-zh>點卡片進 3D 檢視器；按 ⚡ 全部產生縮圖；Ctrl+點 多選後右鍵可列出路徑或批次刪除。</span><span data-en>Click a card to open the 3D viewer. Press ⚡ to batch-build all thumbnails. Ctrl+click to multi-select, then right-click to list paths or delete in bulk.</span></p>
+        </li>
+      </ol>
+      <div>
+        <h3 style="margin-bottom:16px;"><span data-zh>操作說明</span><span data-en>Controls</span></h3>
+        <div class="keys">
+          <div class="keyrow"><kbd><span data-zh>雙擊</span><span data-en>Double-click</span></kbd><span data-zh>開啟 3D 檢視器</span><span data-en>Open 3D viewer</span></div>
+          <div class="keyrow"><kbd>Ctrl+<span data-zh>點</span><span data-en>click</span></kbd><span data-zh>加入 / 移除選取</span><span data-en>Toggle selection</span></div>
+          <div class="keyrow"><kbd>Shift+<span data-zh>點</span><span data-en>click</span></kbd><span data-zh>範圍選取</span><span data-en>Range select</span></div>
+          <div class="keyrow"><kbd><span data-zh>右鍵</span><span data-en>Right-click</span></kbd><span data-zh>快速選單</span><span data-en>Context menu</span></div>
+          <div class="keyrow"><kbd>Esc</kbd><span data-zh>關閉檢視器 / 彈窗</span><span data-en>Close viewer / modal</span></div>
+          <div class="keyrow"><kbd><span data-zh>滑鼠拖曳</span><span data-en>Mouse drag</span></kbd><span data-zh>旋轉模型（3D 檢視器）</span><span data-en>Rotate model (3D viewer)</span></div>
+          <div class="keyrow"><kbd><span data-zh>滾輪</span><span data-en>Scroll</span></kbd><span data-zh>縮放（3D 檢視器）</span><span data-en>Zoom (3D viewer)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="ft-links">
+      <a href="https://github.com/craig7351/3d-asset-browser" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/craig7351/3d-asset-browser/releases/latest" target="_blank" rel="noopener"><span data-zh>下載</span><span data-en>Download</span></a>
+      <a href="https://youtu.be/PIGn0YEywX0" target="_blank" rel="noopener">YouTube</a>
+      <a href="https://github.com/craig7351/3d-asset-browser/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+    </div>
+    <div>
+      <span data-zh>3D Asset Browser · 以 Electron + Vite + three.js 打造 · MIT 授權。</span>
+      <span data-en>3D Asset Browser · built with Electron + Vite + three.js · MIT licensed.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var html = document.documentElement;
+    var btn = document.getElementById('langToggle');
+    function apply(lang) {
+      html.lang = lang;
+      btn.textContent = lang === 'en' ? '中' : 'EN';
+      try { localStorage.setItem('3dab-lang', lang); } catch (e) {}
+    }
+    var saved;
+    try { saved = localStorage.getItem('3dab-lang'); } catch (e) {}
+    apply(saved === 'zh-Hant' ? 'zh-Hant' : 'en');
+    btn.addEventListener('click', function () {
+      apply(html.lang === 'en' ? 'zh-Hant' : 'en');
+    });
+  })();
+</script>
+</body>
+</html>
