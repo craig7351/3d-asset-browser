@@ -66,6 +66,7 @@ ipcMain.handle('data:tags', (_e, id, tags) => store.setTags(id, tags))
 ipcMain.handle('thumb:get', (_e, absPath) => store.getThumb(absPath))
 ipcMain.handle('thumb:count', (_e, absPaths) => store.countThumbs(absPaths))
 ipcMain.handle('thumb:save', (_e, absPath, dataUrl) => store.saveThumb(absPath, dataUrl))
+ipcMain.handle('thumb:clear', () => store.clearThumbs())
 
 ipcMain.handle('shell:copy', (_e, text) => { clipboard.writeText(text); return true })
 ipcMain.handle('shell:open', async (_e, p) => { const r = await shell.openPath(p); return r || true })

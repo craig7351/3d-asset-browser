@@ -1,7 +1,7 @@
 import './style.css'
 // 3D 素材瀏覽器 renderer
 import { setFilePort } from './loader.js'
-import { requestThumb, setProgressHandler, setBuiltHandler } from './thumbnail.js'
+import { requestThumb, setProgressHandler, setBuiltHandler, clearMemCache } from './thumbnail.js'
 import { Viewer } from './viewer.js'
 
 const $ = (sel) => document.querySelector(sel)
@@ -63,11 +63,13 @@ function renderThumbStatus() {
     return
   }
   if (tStats.total === 0) { el.classList.add('hidden'); return }
-  const busy = tStats.remaining > 0
-  const lead = busy ? '<span class="mini-spin"></span> ' : '✓ '
   const notBuilt = Math.max(0, tStats.total - tStats.built)
+  const allDone = notBuilt === 0
+  const busy = !allDone && tStats.remaining > 0
+  // 全部建完才顯示 ✓；有任務跑中顯示 spinner；其餘（idle 但有未建）顯示灰字計數
+  const lead = allDone ? '✓ ' : busy ? '<span class="mini-spin"></span> ' : ''
   el.innerHTML = `${lead}縮圖 已建 ${tStats.built} / 共 ${tStats.total}（未建 ${notBuilt}）`
-  el.classList.toggle('done', !busy)
+  el.classList.toggle('done', allDone)
   el.classList.remove('hidden')
 }
 
@@ -92,6 +94,7 @@ async function refreshBuiltCount(list) {
   const token = ++builtQueryToken
   const viewables = list.filter((m) => m.viewable)
   tStats.total = viewables.length
+  tStats.built = 0  // 先清零，等 countThumbs 確認後再更新，避免舊值觸發假 "done"
   renderThumbStatus()
   const absPaths = viewables.map((m) => m.paths[m.viewable.ext])
   let n = 0
@@ -542,6 +545,13 @@ function bindUI() {
     if (b) applyViewSize(b.dataset.size)
   })
   $('#btn-build-all').addEventListener('click', buildAllThumbs)
+  $('#btn-clear-thumbs').addEventListener('click', async () => {
+    await window.api.clearThumbs()
+    clearMemCache()
+    tStats.built = 0
+    renderThumbStatus()
+    renderGrid()
+  })
   $('#btn-delete').addEventListener('click', deleteSelected)
   $('#btn-clear-sel').addEventListener('click', clearSelection)
   $('#btn-rescan').addEventListener('click', rescan)

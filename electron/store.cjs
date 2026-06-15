@@ -78,13 +78,22 @@ function saveThumb(absPath, dataUrl) {
   return true
 }
 
-// 計算這批模型中已有縮圖快取的數量（只檢查檔案是否存在，不讀內容，速度快）
-function countThumbs(absPaths) {
-  let n = 0
-  for (const p of absPaths) {
-    try { if (fs.existsSync(thumbPath(thumbKey(p)))) n++ } catch {}
-  }
-  return n
+// 計算這批模型中已有縮圖快取的數量（非同步批次檢查，不阻塞主執行緒）
+async function countThumbs(absPaths) {
+  const results = await Promise.all(
+    absPaths.map(p => fs.promises.access(thumbPath(thumbKey(p))).then(() => 1).catch(() => 0))
+  )
+  return results.reduce((a, b) => a + b, 0)
 }
 
-module.exports = { getData, setFavorite, setTags, getThumb, saveThumb, countThumbs }
+function clearThumbs() {
+  const dir = thumbsDir()
+  try {
+    for (const f of fs.readdirSync(dir)) {
+      try { fs.unlinkSync(path.join(dir, f)) } catch {}
+    }
+  } catch {}
+  return true
+}
+
+module.exports = { getData, setFavorite, setTags, getThumb, saveThumb, countThumbs, clearThumbs }

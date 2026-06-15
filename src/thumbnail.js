@@ -1,6 +1,10 @@
 import * as THREE from 'three'
 import { loadModel, measure, forceDoubleSide } from './loader.js'
 
+// L1: 本次 session 的記憶體快取，避免重複 IPC；重啟後清空
+const memCache = new Map()
+export function clearMemCache() { memCache.clear() }
+
 // 單一離屏渲染器，重複使用以節省資源
 const SIZE = 256
 let renderer = null
@@ -115,18 +119,20 @@ function pump() {
 
 async function run(job) {
   const { model, resolve } = job
-  // 先查磁碟快取
-  const absForCache = model.paths[model.viewable.ext]
-  try {
-    const cached = await window.api.getThumb(absForCache)
-    if (cached) { resolve(cached); return }
-  } catch {}
+  const key = model.paths[model.viewable.ext]
+  // L1: 記憶體快取（本次 session，零 IPC）
+  if (memCache.has(key)) { resolve(memCache.get(key)); return }
+  // L2: 磁碟快取（IPC → main → PNG，跨重啟持久）
+  const cached = await window.api.getThumb(key)
+  if (cached) { memCache.set(key, cached); resolve(cached); return }
+  // L3: 重新渲染
   try {
     const dataUrl = await renderOne(model.viewable.ext, model.viewable.rel)
-    window.api.saveThumb(absForCache, dataUrl).catch(() => {})
+    window.api.saveThumb(key, dataUrl)  // fire & forget
+    memCache.set(key, dataUrl)
     if (onBuilt) onBuilt()
     resolve(dataUrl)
-  } catch (e) {
+  } catch {
     resolve(null)
   }
 }

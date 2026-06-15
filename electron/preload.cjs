@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   getThumb: (absPath) => ipcRenderer.invoke('thumb:get', absPath),
   countThumbs: (absPaths) => ipcRenderer.invoke('thumb:count', absPaths),
   saveThumb: (absPath, dataUrl) => ipcRenderer.invoke('thumb:save', absPath, dataUrl),
+  clearThumbs: () => ipcRenderer.invoke('thumb:clear'),
   copyPath: (text) => ipcRenderer.invoke('shell:copy', text),
   openPath: (absPath) => ipcRenderer.invoke('shell:open', absPath),
   showInFolder: (absPath) => ipcRenderer.invoke('shell:reveal', absPath),
