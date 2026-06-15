@@ -202,8 +202,10 @@ function filteredModels() {
 
 // ---- 網格 ----
 let thumbObserver = null
+let renderToken = 0   // 每次 renderGrid 遞增，分批渲染時用來中止已過期的批次
 function renderGrid() {
   const grid = $('#grid')
+  const myToken = ++renderToken
   grid.innerHTML = ''
   const list = filteredModels()
   currentList = list
@@ -229,7 +231,19 @@ function renderGrid() {
     }
   }, { rootMargin: '200px' })
 
-  list.forEach((m, i) => grid.appendChild(card(m, i)))
+  // 分批建立卡片：一次塞數千張卡片會讓主執行緒凍結，改為每幀建立一批，
+  // 首屏立即可見，其餘在後續影格補上，過程中 UI 仍可捲動／互動。
+  const CHUNK = 150
+  let i = 0
+  function appendChunk() {
+    if (myToken !== renderToken) return   // 已被更新的 renderGrid 取代，停止這批
+    const frag = document.createDocumentFragment()
+    const end = Math.min(i + CHUNK, list.length)
+    for (; i < end; i++) frag.appendChild(card(list[i], i))
+    grid.appendChild(frag)
+    if (i < list.length) requestAnimationFrame(appendChunk)
+  }
+  appendChunk()
   updateSelToolbar()
 }
 

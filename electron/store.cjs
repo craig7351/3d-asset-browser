@@ -53,28 +53,42 @@ function thumbPath(absModelPath) {
   return path.join(dir, '.thumbs', stem + '.png')
 }
 
-function getThumb(absPath) {
+// 非同步讀取，避免大量縮圖載入時 readFileSync 卡住主行程
+async function getThumb(absPath) {
   try {
-    const buf = fs.readFileSync(thumbPath(absPath))
+    const buf = await fs.promises.readFile(thumbPath(absPath))
     return 'data:image/png;base64,' + buf.toString('base64')
   } catch {
     return null
   }
 }
 
-function saveThumb(absPath, dataUrl) {
+async function saveThumb(absPath, dataUrl) {
   const p = thumbPath(absPath)
-  fs.mkdirSync(path.dirname(p), { recursive: true })
+  await fs.promises.mkdir(path.dirname(p), { recursive: true })
   const b64 = dataUrl.replace(/^data:image\/\w+;base64,/, '')
-  fs.writeFileSync(p, Buffer.from(b64, 'base64'))
+  await fs.promises.writeFile(p, Buffer.from(b64, 'base64'))
   return true
 }
 
+// 統計已建縮圖數：把路徑依資料夾分組，每個 .thumbs 目錄只 readdir 一次
+// （等於把 .thumbs 當成該資料夾的縮圖索引），避免上千次逐檔 fs.access。
 async function countThumbs(absPaths) {
-  const results = await Promise.all(
-    absPaths.map(p => fs.promises.access(thumbPath(p)).then(() => 1).catch(() => 0))
-  )
-  return results.reduce((a, b) => a + b, 0)
+  const byDir = new Map()   // .thumbs 目錄 → 需比對的 png 檔名陣列
+  for (const p of absPaths) {
+    const td = path.join(path.dirname(p), '.thumbs')
+    const name = path.basename(p, path.extname(p)) + '.png'
+    if (!byDir.has(td)) byDir.set(td, [])
+    byDir.get(td).push(name)
+  }
+  let total = 0
+  await Promise.all([...byDir.entries()].map(async ([td, names]) => {
+    let set
+    try { set = new Set(await fs.promises.readdir(td)) }
+    catch { return }   // 該資料夾還沒有 .thumbs
+    for (const n of names) if (set.has(n)) total++
+  }))
+  return total
 }
 
 // 遞迴刪除 libraryRoot 內所有 .thumbs 目錄的內容
