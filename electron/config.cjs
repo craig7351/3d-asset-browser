@@ -1,9 +1,12 @@
 const path = require('node:path')
 const fs = require('node:fs')
+const os = require('node:os')
 const { app } = require('electron')
 
 // 預設素材庫根目錄；可被 userData/settings.json 覆寫
-const DEFAULT_LIBRARY_ROOT = 'F:\\0_CODE\\素材庫'
+const DEFAULT_LIBRARY_ROOT = process.platform === 'win32'
+  ? 'F:\\0_CODE\\素材庫'
+  : path.join(os.homedir(), 'Documents', '3D-Assets')
 
 function settingsPath() {
   return path.join(app.getPath('userData'), 'settings.json')
