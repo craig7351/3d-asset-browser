@@ -1,8 +1,8 @@
 import './style.css'
-// 3D 素材瀏覽器 renderer
 import { setFilePort } from './loader.js'
 import { requestThumb, setProgressHandler, setBuiltHandler, clearMemCache } from './thumbnail.js'
 import { Viewer } from './viewer.js'
+import { t, getLang, setLang, applyI18n } from './i18n.js'
 
 const $ = (sel) => document.querySelector(sel)
 
@@ -11,23 +11,25 @@ const state = {
   tree: [],
   favorites: {},
   tags: {},
-  activeCategory: '',   // '' = 全部
+  activeCategory: '',
   search: '',
   formatFilter: '',
   favOnly: false,
   animOnly: false,
   expanded: new Set(),
-  selected: new Set(),   // 已選取的模型 id
+  selected: new Set(),
   viewSize: 'md'
 }
-let currentList = []      // 目前網格顯示的模型清單（供範圍選取 / 全選用）
-let lastClickedIndex = -1 // 供 Shift 範圍選取
+let currentList = []
+let lastClickedIndex = -1
 
 let viewer = null
 let viewerModel = null
 
 // ---- 初始化 ----
 async function init() {
+  applyI18n()
+
   const cfg = await window.api.getConfig()
   setFilePort(cfg.filePort)
   $('#root-info').textContent = cfg.libraryRoot
@@ -43,21 +45,20 @@ async function init() {
   bindUI()
 }
 
-// 縮圖狀態：目前檢視範圍內已建幾張 / 共幾張、還有幾張在處理
 const tStats = { built: 0, total: 0, remaining: 0 }
-// 全部產生縮圖的進度
 const buildAll = { active: false, total: 0, done: 0 }
+
 function renderThumbStatus() {
   const el = $('#thumb-status')
   if (buildAll.active) {
     const left = buildAll.total - buildAll.done
     if (left > 0) {
-      el.innerHTML = `<span class="mini-spin"></span> 全部產生縮圖 ${buildAll.done} / ${buildAll.total}`
+      el.innerHTML = `<span class="mini-spin"></span> ${t('build_all_progress', { done: buildAll.done, total: buildAll.total })}`
       el.classList.remove('hidden', 'done')
     } else {
       buildAll.active = false
       $('#btn-build-all').disabled = false
-      el.textContent = `✓ 已全部產生 ${buildAll.total} 張縮圖`
+      el.textContent = t('build_all_done', { total: buildAll.total })
       el.classList.remove('hidden'); el.classList.add('done')
     }
     return
@@ -66,14 +67,13 @@ function renderThumbStatus() {
   const notBuilt = Math.max(0, tStats.total - tStats.built)
   const allDone = notBuilt === 0
   const busy = !allDone && tStats.remaining > 0
-  // 全部建完才顯示 ✓；有任務跑中顯示 spinner；其餘（idle 但有未建）顯示灰字計數
   const lead = allDone ? '✓ ' : busy ? '<span class="mini-spin"></span> ' : ''
-  el.innerHTML = `${lead}縮圖 已建 ${tStats.built} / 共 ${tStats.total}（未建 ${notBuilt}）`
+  const key = allDone ? 'thumb_done' : 'thumb_count'
+  el.innerHTML = `${lead}${t(key, { built: tStats.built, total: tStats.total, notBuilt })}`
   el.classList.toggle('done', allDone)
   el.classList.remove('hidden')
 }
 
-// 一次把整個素材庫所有可檢視模型的縮圖都產生好（背景進行）
 function buildAllThumbs() {
   if (buildAll.active) return
   const list = state.models.filter((m) => m.viewable)
@@ -88,23 +88,21 @@ function buildAllThumbs() {
   }
 }
 
-// 查詢目前檢視範圍內已有快取的縮圖數，更新狀態
 let builtQueryToken = 0
 async function refreshBuiltCount(list) {
   const token = ++builtQueryToken
   const viewables = list.filter((m) => m.viewable)
   tStats.total = viewables.length
-  tStats.built = 0  // 先清零，等 countThumbs 確認後再更新，避免舊值觸發假 "done"
+  tStats.built = 0
   renderThumbStatus()
   const absPaths = viewables.map((m) => m.paths[m.viewable.ext])
   let n = 0
   try { n = await window.api.countThumbs(absPaths) } catch {}
-  if (token !== builtQueryToken) return   // 已有更新的查詢，捨棄這次結果
+  if (token !== builtQueryToken) return
   tStats.built = n
   renderThumbStatus()
 }
 
-// 套用卡片大小（sm/md/lg）並記住選擇
 function applyViewSize(size) {
   state.viewSize = ['sm', 'md', 'lg'].includes(size) ? size : 'md'
   const grid = $('#grid')
@@ -117,7 +115,7 @@ function applyViewSize(size) {
 }
 
 async function rescan() {
-  $('#grid').innerHTML = '<div class="empty">掃描中…</div>'
+  $('#grid').innerHTML = `<div class="empty">${t('scanning')}</div>`
   const res = await window.api.scan()
   if (res.error) {
     $('#grid').innerHTML = `<div class="empty">${res.error}</div>`
@@ -134,12 +132,9 @@ async function rescan() {
 function renderTree() {
   const nav = $('#tree')
   nav.innerHTML = ''
-
   const total = state.models.length
-  nav.appendChild(treeRow({ name: '全部', path: '', count: total }, 0, false, null))
-  nav.appendChild(treeRow({ name: '⭐ 最愛', path: '__fav__', count: Object.keys(state.favorites).length }, 0, false, null))
-
-  // 平鋪 + 縮排（用 depth 控制 padding），展開的節點才往下遞迴
+  nav.appendChild(treeRow({ name: t('tree_all'), path: '', count: total }, 0, false, null))
+  nav.appendChild(treeRow({ name: t('tree_fav'), path: '__fav__', count: Object.keys(state.favorites).length }, 0, false, null))
   const flat = (nodes, depth) => {
     for (const node of nodes) {
       const hasChildren = node.children && node.children.length
@@ -180,7 +175,7 @@ function treeRow(node, depth, hasChildren, realNode) {
   })
   row.addEventListener('click', () => {
     state.activeCategory = node.path
-    state.selected.clear()          // 切換分類時清除選取，避免誤刪其他分類的檔案
+    state.selected.clear()
     lastClickedIndex = -1
     renderTree()
     renderGrid()
@@ -213,10 +208,10 @@ function renderGrid() {
   const list = filteredModels()
   currentList = list
   lastClickedIndex = -1
-  $('#count').textContent = `${list.length} 個模型`
+  $('#count').textContent = t('model_count', { n: list.length })
 
   if (!list.length) {
-    grid.innerHTML = '<div class="empty">沒有符合的模型</div>'
+    grid.innerHTML = `<div class="empty">${t('no_models')}</div>`
     tStats.total = 0
     renderThumbStatus()
     return
@@ -254,12 +249,11 @@ function card(m, index) {
   }
   el.appendChild(thumb)
 
-  // 覆蓋在卡片上的標記（放在卡片而非縮圖，縮圖內容更新時才不會被清掉）
   if (m.hasAnimation) {
     const anim = document.createElement('div')
     anim.className = 'anim-chip'
-    anim.textContent = '▶ 動畫'
-    anim.title = '此模型含動畫'
+    anim.textContent = t('anim_chip')
+    anim.title = t('anim_chip_title')
     el.appendChild(anim)
   }
   if (state.favorites[m.id]) {
@@ -289,7 +283,6 @@ function card(m, index) {
   meta.appendChild(badges)
   el.appendChild(meta)
 
-  // 單擊 = 選取（延遲 220ms，若是雙擊則取消選取改為開啟）
   let clickTimer = null
   el.addEventListener('click', (e) => {
     clearTimeout(clickTimer)
@@ -306,21 +299,21 @@ function card(m, index) {
     if (isSelected && state.selected.size > 1) {
       const models = currentList.filter(x => state.selected.has(x.id))
       showCtxMenu(e.clientX, e.clientY, [
-        { label: `列出所有路徑（${models.length} 個）`, action: () => showPathList(models) },
-        { label: '複製所有路徑', action: () => {
+        { label: t('ctx_list_paths', { n: models.length }), action: () => showPathList(models) },
+        { label: t('ctx_copy_all_paths'), action: () => {
           const paths = models.map(x => x.viewable ? x.paths[x.viewable.ext] : Object.values(x.paths)[0])
           window.api.copyPath(paths.join('\n'))
         }},
         '---',
-        { label: '取消全選', action: clearSelection }
+        { label: t('ctx_deselect'), action: clearSelection }
       ])
     } else {
       const path = m.viewable ? m.paths[m.viewable.ext] : Object.values(m.paths)[0]
       showCtxMenu(e.clientX, e.clientY, [
-        { label: '開啟 3D 檢視', action: () => openViewer(m) },
-        { label: '複製路徑', action: () => window.api.copyPath(path) },
-        { label: '外部開啟', action: () => window.api.openPath(path) },
-        { label: '在檔案總管顯示', action: () => window.api.showInFolder(path) },
+        { label: t('ctx_view3d'), action: () => openViewer(m) },
+        { label: t('ctx_copy_path'), action: () => window.api.copyPath(path) },
+        { label: t('ctx_open_external'), action: () => window.api.openPath(path) },
+        { label: t('ctx_show_folder'), action: () => window.api.showInFolder(path) },
       ])
     }
   })
@@ -329,7 +322,6 @@ function card(m, index) {
   return el
 }
 
-// 處理卡片選取：一般點擊=切換，Shift=範圍選取，Ctrl/Cmd=加減選
 function handleSelect(m, index, e) {
   if (e.shiftKey && lastClickedIndex >= 0 && index >= 0) {
     const [a, b] = [lastClickedIndex, index].sort((x, y) => x - y)
@@ -345,7 +337,6 @@ function handleSelect(m, index, e) {
   syncSelectionUI()
 }
 
-// 只更新選取相關的 DOM（不重建整個網格）
 function syncSelectionUI() {
   document.querySelectorAll('#grid .card').forEach((el) => {
     el.classList.toggle('selected', state.selected.has(el._model.id))
@@ -353,11 +344,10 @@ function syncSelectionUI() {
   updateSelToolbar()
 }
 
-// 更新刪除/清除按鈕狀態
 function updateSelToolbar() {
   const n = state.selected.size
   const del = $('#btn-delete')
-  del.textContent = `🗑 刪除選取 (${n})`
+  del.textContent = t('delete_btn', { n })
   del.disabled = n === 0
   $('#btn-clear-sel').classList.toggle('hidden', n === 0)
 }
@@ -368,24 +358,28 @@ function clearSelection() {
   syncSelectionUI()
 }
 
-// 刪除選取模型的原始檔案（移到資源回收桶）
 async function deleteSelected() {
   if (!state.selected.size) return
   const models = state.models.filter((m) => state.selected.has(m.id))
-  // 收集每個模型所有格式的檔案路徑
   const paths = []
   for (const m of models) paths.push(...Object.values(m.paths))
 
-  const okToDelete = await window.api.confirmDelete(models.length, paths.length)
+  const okToDelete = await window.api.confirmDelete({
+    title: t('dlg_delete_title'),
+    message: t('dlg_delete_message', { count: models.length }),
+    detail: t('dlg_delete_detail', { fileCount: paths.length }),
+    cancelBtn: t('dlg_cancel'),
+    confirmBtn: t('dlg_confirm'),
+  })
   if (!okToDelete) return
 
   const res = await window.api.trashFiles(paths)
   state.selected.clear()
   lastClickedIndex = -1
-  await rescan()   // 重新掃描，更新模型清單與資料夾樹（已刪的檔案不會再出現）
+  await rescan()
   updateSelToolbar()
   if (res.failed && res.failed.length) {
-    alert(`已刪除 ${res.ok} 個檔案，但有 ${res.failed.length} 個失敗（可能正被佔用）。`)
+    alert(t('delete_error', { ok: res.ok, failed: res.failed.length }))
   }
 }
 
@@ -415,10 +409,9 @@ async function openViewer(m) {
   $('#vi-name').textContent = m.name
   $('#vi-path').textContent = m.viewable ? m.paths[m.viewable.ext] : Object.values(m.paths)[0]
   $('#vi-stats').textContent = ''
-  $('#anim-controls').classList.add('hidden')   // 預設隱藏動畫控制
+  $('#anim-controls').classList.add('hidden')
   updateFavBtn()
 
-  // 格式徽章
   const fwrap = $('#vi-formats')
   fwrap.innerHTML = ''
   for (const f of m.formatList) {
@@ -430,25 +423,28 @@ async function openViewer(m) {
   }
 
   if (!m.viewable) {
-    $('#viewer-loading').textContent = '此模型只有 .blend 格式，無法在此預覽。請用外部程式開啟。'
+    $('#viewer-loading').textContent = t('viewer_no_preview')
     $('#viewer-loading').classList.remove('hidden')
     return
   }
 
-  $('#viewer-loading').textContent = '載入中…'
+  $('#viewer-loading').textContent = t('viewer_loading')
   $('#viewer-loading').classList.remove('hidden')
   try {
     const stats = await viewer.show(m.viewable.ext, m.viewable.rel)
-    $('#vi-stats').textContent = `${stats.tris.toLocaleString()} 面 · ${stats.verts.toLocaleString()} 頂點 · 檢視格式：${m.viewable.ext}`
+    $('#vi-stats').textContent = t('viewer_stats', {
+      tris: stats.tris.toLocaleString(),
+      verts: stats.verts.toLocaleString(),
+      ext: m.viewable.ext
+    })
     setupAnimUI(stats)
     $('#viewer-loading').classList.add('hidden')
     setTimeout(() => viewer.resize(), 30)
   } catch (e) {
-    $('#viewer-loading').textContent = '載入失敗：' + (e.message || e)
+    $('#viewer-loading').textContent = t('viewer_error') + (e.message || e)
   }
 }
 
-// 依模型動畫片段設定動畫控制列
 function setupAnimUI(stats) {
   const wrap = $('#anim-controls')
   const sel = $('#anim-select')
@@ -515,7 +511,7 @@ function hideCtxMenu() { $('#ctx-menu').classList.add('hidden') }
 // ---- 路徑清單彈窗 ----
 function showPathList(models) {
   const paths = models.map(m => m.viewable ? m.paths[m.viewable.ext] : Object.values(m.paths)[0])
-  $('#pl-title').textContent = `所有路徑（${models.length} 個模型）`
+  $('#pl-title').textContent = t('path_list_title', { n: models.length })
   const body = $('#pl-body')
   body.innerHTML = ''
   models.forEach((m, i) => {
@@ -523,7 +519,7 @@ function showPathList(models) {
     row.className = 'pl-row'
     const name = document.createElement('span'); name.className = 'pl-row-name'; name.textContent = m.name
     const p = document.createElement('span'); p.className = 'pl-row-path'; p.textContent = paths[i]
-    const btn = document.createElement('button'); btn.className = 'pl-row-copy'; btn.textContent = '複製'
+    const btn = document.createElement('button'); btn.className = 'pl-row-copy'; btn.textContent = t('path_list_copy_row')
     btn.addEventListener('click', () => window.api.copyPath(paths[i]))
     row.append(name, p, btn)
     body.appendChild(row)
@@ -559,13 +555,19 @@ function bindUI() {
     const r = await window.api.pickLibrary()
     if (r) await rescan()
   })
+  $('#btn-lang').addEventListener('click', () => {
+    setLang(getLang() === 'en' ? 'zh' : 'en')
+    $('#btn-lang').textContent = getLang() === 'en' ? '中文' : 'English'
+    renderTree()
+    renderGrid()
+    renderThumbStatus()
+    updateSelToolbar()
+  })
 
-  // 右鍵選單：點其他地方關閉
   document.addEventListener('mousedown', (e) => {
     if (!$('#ctx-menu').contains(e.target)) hideCtxMenu()
   })
 
-  // 路徑清單彈窗
   $('#pl-close').addEventListener('click', hidePathList)
   $('#path-list-overlay').addEventListener('click', (e) => { if (e.target.id === 'path-list-overlay') hidePathList() })
 
@@ -595,7 +597,6 @@ function bindUI() {
     else if (act === 'reset') viewer.resetView()
   })
 
-  // 動畫控制
   $('#anim-select').addEventListener('change', (e) => {
     if (!viewer) return
     viewer.playClip(+e.target.value)

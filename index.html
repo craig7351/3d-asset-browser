@@ -1,47 +1,48 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>3D 素材瀏覽器</title>
+    <title>3D Asset Browser</title>
   </head>
   <body>
     <div id="app">
       <!-- 側欄 -->
       <aside id="sidebar">
         <div class="sb-head">
-          <h1>3D 素材庫</h1>
-          <button id="btn-rescan" title="重新掃描">⟳</button>
+          <h1 data-i18n="sidebar_title">3D Library</h1>
+          <button id="btn-rescan" data-i18n="rescan_title" data-i18n-attr="title" title="Rescan">⟳</button>
         </div>
         <div class="sb-root" id="root-info"></div>
         <nav id="tree"></nav>
-        <button id="btn-pick" class="pick-btn">變更素材庫資料夾…</button>
+        <button id="btn-pick" class="pick-btn" data-i18n="pick_library">Change library folder…</button>
       </aside>
 
       <!-- 主區 -->
       <main id="main">
         <header id="topbar">
-          <input id="search" type="search" placeholder="搜尋模型名稱…" />
+          <input id="search" type="search" data-i18n="search_placeholder" data-i18n-attr="placeholder" placeholder="Search model name…" />
           <div class="filters">
-            <label class="fav-filter"><input type="checkbox" id="filter-fav" /> ⭐ 只看最愛</label>
-            <label class="fav-filter"><input type="checkbox" id="filter-anim" /> 🎬 只看動畫</label>
-            <div class="view-size" id="view-size" title="卡片大小">
-              <button data-size="sm">小</button>
-              <button data-size="md" class="on">中</button>
-              <button data-size="lg">大</button>
+            <label class="fav-filter"><input type="checkbox" id="filter-fav" /> <span data-i18n="fav_only">⭐ Favorites only</span></label>
+            <label class="fav-filter"><input type="checkbox" id="filter-anim" /> <span data-i18n="anim_only">🎬 Animated only</span></label>
+            <div class="view-size" id="view-size" title="Card size">
+              <button data-size="sm" data-i18n="size_sm">S</button>
+              <button data-size="md" class="on" data-i18n="size_md">M</button>
+              <button data-size="lg" data-i18n="size_lg">L</button>
             </div>
             <select id="filter-format">
-              <option value="">所有格式</option>
+              <option value="" data-i18n="all_formats">All formats</option>
               <option value="glb">glb</option>
               <option value="gltf">gltf</option>
               <option value="fbx">fbx</option>
               <option value="obj">obj</option>
               <option value="blend">blend</option>
             </select>
-            <button id="btn-delete" class="del-btn" disabled>🗑 刪除選取 (0)</button>
-            <button id="btn-clear-sel" class="build-all-btn hidden">清除選取</button>
-            <button id="btn-build-all" class="build-all-btn" title="一次把整個素材庫的縮圖都產生好（背景進行，可繼續操作）">⚡ 全部產生縮圖</button>
-            <button id="btn-clear-thumbs" class="build-all-btn" title="清除瀏覽器內的縮圖快取（下次顯示會重新渲染）">🗑 清除縮圖快取</button>
+            <button id="btn-delete" class="del-btn" disabled>🗑 Delete (0)</button>
+            <button id="btn-clear-sel" class="build-all-btn hidden" data-i18n="clear_sel">Clear selection</button>
+            <button id="btn-build-all" class="build-all-btn" data-i18n="build_all">⚡ Build all thumbnails</button>
+            <button id="btn-clear-thumbs" class="build-all-btn" data-i18n="clear_thumbs">🗑 Clear thumbnail cache</button>
+            <button id="btn-lang" class="build-all-btn">中文</button>
             <span id="count" class="count"></span>
             <span id="thumb-status" class="thumb-status hidden"></span>
           </div>
@@ -54,29 +55,29 @@
     <div id="viewer-overlay" class="hidden">
       <div id="viewer-panel">
         <div id="viewer-canvas-wrap"></div>
-        <button id="viewer-close" title="關閉 (Esc)">✕</button>
+        <button id="viewer-close" data-i18n="close_esc" data-i18n-attr="title" title="Close (Esc)">✕</button>
         <div id="viewer-toolbar">
-          <button data-act="wireframe">線框</button>
-          <button data-act="grid" class="on">格線</button>
-          <button data-act="bg">背景</button>
-          <button data-act="reset">重置視角</button>
+          <button data-act="wireframe" data-i18n="wireframe">Wireframe</button>
+          <button data-act="grid" class="on" data-i18n="grid">Grid</button>
+          <button data-act="bg" data-i18n="bg">BG</button>
+          <button data-act="reset" data-i18n="reset_view">Reset view</button>
           <span id="anim-controls" class="hidden">
-            <button id="anim-playpause" title="播放/暫停">⏸</button>
-            <select id="anim-select" title="動畫片段"></select>
+            <button id="anim-playpause" title="Play/Pause">⏸</button>
+            <select id="anim-select" title="Animation clips"></select>
           </span>
         </div>
         <div id="viewer-info">
-          <div class="vi-title"><span id="vi-name"></span> <button id="vi-fav" title="加入最愛">☆</button></div>
+          <div class="vi-title"><span id="vi-name"></span> <button id="vi-fav" title="Toggle favorite">☆</button></div>
           <div id="vi-stats" class="vi-stats"></div>
           <div id="vi-formats" class="vi-formats"></div>
           <div id="vi-path" class="vi-path"></div>
           <div class="vi-actions">
-            <button id="vi-copy">複製路徑</button>
-            <button id="vi-open">外部開啟</button>
-            <button id="vi-reveal">在檔案總管顯示</button>
+            <button id="vi-copy" data-i18n="copy_path">Copy path</button>
+            <button id="vi-open" data-i18n="open_external">Open externally</button>
+            <button id="vi-reveal" data-i18n="show_in_folder">Show in folder</button>
           </div>
         </div>
-        <div id="viewer-loading" class="hidden">載入中…</div>
+        <div id="viewer-loading" class="hidden">Loading…</div>
       </div>
     </div>
 
@@ -89,7 +90,7 @@
         <div class="pl-head">
           <span id="pl-title"></span>
           <div class="pl-actions">
-            <button id="pl-copy-all">全部複製</button>
+            <button id="pl-copy-all" data-i18n="copy_all">Copy all</button>
             <button id="pl-close">✕</button>
           </div>
         </div>

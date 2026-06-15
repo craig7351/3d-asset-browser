@@ -16,5 +16,5 @@ contextBridge.exposeInMainWorld('api', {
   openPath: (absPath) => ipcRenderer.invoke('shell:open', absPath),
   showInFolder: (absPath) => ipcRenderer.invoke('shell:reveal', absPath),
   trashFiles: (paths) => ipcRenderer.invoke('shell:trash', paths),
-  confirmDelete: (count, fileCount) => ipcRenderer.invoke('dialog:confirmDelete', count, fileCount)
+  confirmDelete: (opts) => ipcRenderer.invoke('dialog:confirmDelete', opts)
 })

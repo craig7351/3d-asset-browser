@@ -14,7 +14,7 @@
   },
   "build": {
     "appId": "com.local.asset3dviewer",
-    "productName": "3D 素材瀏覽器",
+    "productName": "3D Asset Browser",
     "directories": {
       "output": "release"
     },

@@ -16,7 +16,7 @@ async function createWindow() {
     width: 1400,
     height: 900,
     backgroundColor: '#1a1a1e',
-    title: '3D 素材瀏覽器',
+    title: '3D Asset Browser',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -83,16 +83,16 @@ ipcMain.handle('shell:trash', async (_e, paths) => {
   return { ok, failed }
 })
 
-// 刪除前的原生確認對話框
-ipcMain.handle('dialog:confirmDelete', async (_e, count, fileCount) => {
+// 刪除前的原生確認對話框（字串由 renderer 傳入，支援多語）
+ipcMain.handle('dialog:confirmDelete', async (_e, { title, message, detail, cancelBtn, confirmBtn }) => {
   const r = await dialog.showMessageBox(win, {
     type: 'warning',
-    buttons: ['取消', '移到資源回收桶'],
+    buttons: [cancelBtn, confirmBtn],
     defaultId: 0,
     cancelId: 0,
-    title: '刪除模型',
-    message: `確定要刪除選取的 ${count} 個模型嗎？`,
-    detail: `將把這些模型的 ${fileCount} 個原始檔案移到資源回收桶（可從回收桶還原）。`
+    title,
+    message,
+    detail,
   })
   return r.response === 1
 })
