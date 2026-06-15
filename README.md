@@ -2,9 +2,19 @@
 
 A desktop app to browse local 3D asset libraries. Scan a folder, generate thumbnails, and view models in 3D with a single click. Supports both **English** and **中文** UI.
 
-![Platform](https://img.shields.io/badge/platform-Windows-blue)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)
 ![Electron](https://img.shields.io/badge/Electron-33-47848F)
 ![three.js](https://img.shields.io/badge/three.js-r160-black)
+
+## Demo
+
+[![Watch on YouTube](https://img.shields.io/badge/YouTube-Demo-red?logo=youtube)](https://youtu.be/PIGn0YEywX0)
+
+## Screenshots
+
+![Browse view](docs/screenshot-browse.png)
+
+![Multi-select view](docs/screenshot-multiselect.png)
 
 ## Features
 
@@ -32,11 +42,12 @@ A desktop app to browse local 3D asset libraries. Scan a folder, generate thumbn
 
 ## Quick Start
 
-Default library path: `F:\0_CODE\素材庫` (change via the "Change library folder…" button in the app, or edit `DEFAULT_LIBRARY_ROOT` in `electron/config.cjs`).
+Default library path: `F:\0_CODE\素材庫` on Windows, `~/Documents/3D-Assets` on macOS/Linux.  
+Change it in the app via the **"Change library folder…"** button, or edit `DEFAULT_LIBRARY_ROOT` in `electron/config.cjs`.
 
 ### Pre-built (Windows)
 
-Download `release/3D Asset Browser 0.1.0.exe` (portable, no install required).
+Download the latest installer from [Releases](https://github.com/craig7351/3d-asset-browser/releases).
 
 ### Development
 
@@ -48,7 +59,7 @@ npm run dev      # Vite + Electron with hot reload; press F12 for DevTools
 ### Build
 
 ```powershell
-npm run dist     # Outputs portable .exe to release/
+npm run dist     # Outputs installers to release/
 ```
 
 ## Architecture
@@ -82,6 +93,8 @@ npm run dist     # Outputs portable .exe to release/
 
 快速瀏覽本機 3D 素材庫的桌面工具，支援中英文 UI 切換。
 
+[![YouTube 介紹](https://img.shields.io/badge/YouTube-介紹影片-red?logo=youtube)](https://youtu.be/PIGn0YEywX0)
+
 ## 功能
 
 - 遞迴掃描素材庫，**同名多格式自動合併**成一個模型卡片（glb / gltf / fbx / obj / blend）
@@ -95,10 +108,10 @@ npm run dist     # Outputs portable .exe to release/
 ```powershell
 npm install
 npm run dev   # 開發模式，支援熱更新
-npm run dist  # 打包成 portable .exe
+npm run dist  # 打包成各平台安裝檔
 ```
 
-預設素材庫：`F:\0_CODE\素材庫`（可在 App 內切換或修改 `electron/config.cjs`）。
+或直接從 [Releases](https://github.com/craig7351/3d-asset-browser/releases) 下載安裝檔。
 
 ## 資料位置
 
