@@ -1,19 +1,12 @@
 const path = require('node:path')
 const fs = require('node:fs')
-const crypto = require('node:crypto')
 const { app } = require('electron')
 
-// 使用者資料（最愛、標記）與縮圖快取都放在 userData，不污染素材庫原檔
 function dataFile() {
   return path.join(app.getPath('userData'), 'library-data.json')
 }
-function thumbsDir() {
-  const d = path.join(app.getPath('userData'), 'thumbs')
-  fs.mkdirSync(d, { recursive: true })
-  return d
-}
 
-let _cache = null  // in-memory cache，避免每次 IPC 都讀磁碟
+let _cache = null
 
 function load() {
   if (_cache !== null) return _cache
@@ -53,46 +46,55 @@ function setTags(id, tags) {
   return d.tags
 }
 
-// 縮圖快取：key = hash(絕對路徑 + mtime)，避免檔案更新後沿用舊圖
-function thumbKey(absPath) {
-  let mtime = 0
-  try { mtime = fs.statSync(absPath).mtimeMs } catch {}
-  return crypto.createHash('md5').update(absPath + '|' + mtime).digest('hex')
+// 縮圖存在模型同目錄的 .thumbs 資料夾，方便搬移素材庫時一起帶走
+function thumbPath(absModelPath) {
+  const dir = path.dirname(absModelPath)
+  const stem = path.basename(absModelPath, path.extname(absModelPath))
+  return path.join(dir, '.thumbs', stem + '.png')
 }
-function thumbPath(key) {
-  return path.join(thumbsDir(), key + '.png')
-}
+
 function getThumb(absPath) {
-  const p = thumbPath(thumbKey(absPath))
   try {
-    const buf = fs.readFileSync(p)
+    const buf = fs.readFileSync(thumbPath(absPath))
     return 'data:image/png;base64,' + buf.toString('base64')
   } catch {
     return null
   }
 }
+
 function saveThumb(absPath, dataUrl) {
-  const key = thumbKey(absPath)
+  const p = thumbPath(absPath)
+  fs.mkdirSync(path.dirname(p), { recursive: true })
   const b64 = dataUrl.replace(/^data:image\/\w+;base64,/, '')
-  fs.writeFileSync(thumbPath(key), Buffer.from(b64, 'base64'))
+  fs.writeFileSync(p, Buffer.from(b64, 'base64'))
   return true
 }
 
-// 計算這批模型中已有縮圖快取的數量（非同步批次檢查，不阻塞主執行緒）
 async function countThumbs(absPaths) {
   const results = await Promise.all(
-    absPaths.map(p => fs.promises.access(thumbPath(thumbKey(p))).then(() => 1).catch(() => 0))
+    absPaths.map(p => fs.promises.access(thumbPath(p)).then(() => 1).catch(() => 0))
   )
   return results.reduce((a, b) => a + b, 0)
 }
 
-function clearThumbs() {
-  const dir = thumbsDir()
-  try {
-    for (const f of fs.readdirSync(dir)) {
-      try { fs.unlinkSync(path.join(dir, f)) } catch {}
-    }
-  } catch {}
+// 遞迴刪除 libraryRoot 內所有 .thumbs 目錄的內容
+async function clearThumbs(libraryRoot) {
+  async function walk(dir) {
+    const td = path.join(dir, '.thumbs')
+    try {
+      const files = await fs.promises.readdir(td)
+      await Promise.all(files.map(f => fs.promises.unlink(path.join(td, f)).catch(() => {})))
+    } catch {}
+    try {
+      const entries = await fs.promises.readdir(dir, { withFileTypes: true })
+      await Promise.all(
+        entries
+          .filter(e => e.isDirectory() && e.name !== '.thumbs')
+          .map(e => walk(path.join(dir, e.name)))
+      )
+    } catch {}
+  }
+  await walk(libraryRoot)
   return true
 }
 
