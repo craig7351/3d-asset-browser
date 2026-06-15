@@ -2,6 +2,7 @@
   "name": "asset-3d-viewer",
   "version": "0.1.0",
   "description": "快速瀏覽本機 3D 素材庫的小工具",
+  "author": "craig7351 <craig7351@users.noreply.github.com>",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -43,6 +44,7 @@
         { "target": "AppImage", "arch": ["x64"] },
         { "target": "deb",      "arch": ["x64"] }
       ],
+      "maintainer": "craig7351 <craig7351@users.noreply.github.com>",
       "category": "Utility"
     }
   },
